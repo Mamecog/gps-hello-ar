@@ -106,17 +106,39 @@ window.addEventListener('DOMContentLoaded', () => {
   place.setAttribute('gps-entity-place',
     `latitude: ${CONFIG.latitude}; longitude: ${CONFIG.longitude}`)
 
-  // GPS は AR.js の gps-camera が管理するのでそのイベントを使う
-  // （watchPosition を二重に呼ぶと iOS Safari でパーミッションエラーになる）
-  const scene = document.querySelector('a-scene')
-  scene.addEventListener('loaded', () => {
-    const camera = document.querySelector('[gps-camera]')
-    if (!camera) return
+  // GPS 取得（watchPosition で直接管理）
+  if (!navigator.geolocation) {
+    document.getElementById('hint').textContent = 'このブラウザはGPS非対応です'
+    return
+  }
 
-    camera.addEventListener('gps-camera-update-position', e => {
-      const { latitude, longitude } = e.detail.position
-      const dist = calcDistance(latitude, longitude, CONFIG.latitude, CONFIG.longitude)
+  // 10秒経っても位置が取れなければ案内を出す
+  const gpsTimeout = setTimeout(() => {
+    const hint = document.getElementById('hint')
+    if (hint.textContent === 'GPS を取得中...') {
+      hint.textContent = '⚙ 設定 → Safari → 位置情報 → 許可 を確認してください'
+    }
+  }, 10000)
+
+  navigator.geolocation.watchPosition(
+    pos => {
+      clearTimeout(gpsTimeout)
+      const dist = calcDistance(
+        pos.coords.latitude, pos.coords.longitude,
+        CONFIG.latitude, CONFIG.longitude
+      )
       updateUI(dist)
-    })
-  })
+    },
+    err => {
+      clearTimeout(gpsTimeout)
+      const msg = {
+        1: '⚙ 設定 → Safari → 位置情報 → 許可 を確認してください',
+        2: 'GPS シグナルが弱いです。屋外に出てください',
+        3: 'GPS タイムアウト。再読み込みしてください',
+      }
+      document.getElementById('hint').textContent = msg[err.code] || 'GPS エラー'
+      console.warn('GPS error:', err)
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  )
 })
