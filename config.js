@@ -6,8 +6,8 @@
 const CONFIG = {
   // --- ARを表示したい場所の GPS 座標 ---
   // Google マップで場所を長押し → 緯度・経度をコピー
-  latitude:  35.6812,   // 例：東京駅
-  longitude: 139.7671,
+  latitude:  35.621550820790326,
+  longitude: 139.6964253859285,
 
   // --- 吹き出しに表示するテキスト ---
   label: 'Hello!',
