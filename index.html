@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>GPS Hello AR</title>
+
+  <!-- A-Frame + AR.js（location-based） -->
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+  <!-- 設定 & カスタムコンポーネント -->
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; }
+
+    #hint {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.65);
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 20px;
+      font-size: 15px;
+      font-family: sans-serif;
+      z-index: 999;
+      text-align: center;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #distance-badge {
+      position: fixed;
+      top: 20px;
+      right: 16px;
+      background: rgba(0,0,0,0.55);
+      color: #7ef;
+      padding: 6px 14px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-family: monospace;
+      z-index: 999;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="hint">GPS を取得中...</div>
+  <div id="distance-badge"></div>
+
+  <a-scene
+    vr-mode-ui="enabled: false"
+    arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false"
+    renderer="antialias: true; alpha: true; logarithmicDepthBuffer: true;"
+    loading-screen="dotsColor: white; backgroundColor: black"
+    embedded
+  >
+    <a-assets>
+      <!-- 吹き出し画像（app.js で canvas から生成してセット） -->
+      <img id="bubble-img">
+    </a-assets>
+
+    <!-- GPS 位置に吹き出しを表示（座標は config.js で設定） -->
+    <a-entity id="ar-place">
+      <a-image
+        id="bubble-mesh"
+        src="#bubble-img"
+        width="4"
+        height="2.5"
+        position="0 1.5 0"
+      ></a-image>
+    </a-entity>
+
+    <a-camera gps-camera rotation-reader></a-camera>
+  </a-scene>
+</body>
+</html>
