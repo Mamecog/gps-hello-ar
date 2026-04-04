@@ -1,6 +1,6 @@
 // ============================================================
 //  app.js  –  GPS Hello AR
-//  AR.js (location-based) + A-Frame
+//  AR.js (location-based) + A-Frame + 方向矢印
 // ============================================================
 
 // ============================================================
@@ -13,16 +13,14 @@ function createBubbleDataURL(text) {
   canvas.height = H
   const ctx = canvas.getContext('2d')
 
-  const R      = 70    // 角丸半径
-  const PTR    = 90    // 下向き三角の幅
-  const BODY_H = 460   // 本体の高さ
+  const R      = 70
+  const PTR    = 90
+  const BODY_H = 460
 
-  // ドロップシャドウ
   ctx.shadowColor   = 'rgba(0,0,0,0.3)'
   ctx.shadowBlur    = 18
   ctx.shadowOffsetY = 6
 
-  // 吹き出し本体（角丸矩形 + 下向き三角）
   ctx.beginPath()
   ctx.moveTo(R, 0)
   ctx.lineTo(W - R, 0)
@@ -30,7 +28,7 @@ function createBubbleDataURL(text) {
   ctx.lineTo(W, BODY_H - R)
   ctx.quadraticCurveTo(W, BODY_H, W - R, BODY_H)
   ctx.lineTo(W / 2 + PTR, BODY_H)
-  ctx.lineTo(W / 2, H)            // 三角の頂点
+  ctx.lineTo(W / 2, H)
   ctx.lineTo(W / 2 - PTR, BODY_H)
   ctx.lineTo(R, BODY_H)
   ctx.quadraticCurveTo(0, BODY_H, 0, BODY_H - R)
@@ -38,20 +36,17 @@ function createBubbleDataURL(text) {
   ctx.quadraticCurveTo(0, 0, R, 0)
   ctx.closePath()
 
-  // 背景グラデーション
   const grad = ctx.createLinearGradient(0, 0, 0, BODY_H)
   grad.addColorStop(0, '#ffffff')
   grad.addColorStop(1, '#e8f4ff')
   ctx.fillStyle = grad
   ctx.fill()
 
-  // 枠線
   ctx.shadowColor = 'transparent'
   ctx.strokeStyle = '#4aa8ff'
   ctx.lineWidth   = 6
   ctx.stroke()
 
-  // テキスト
   ctx.fillStyle    = '#1a1a2e'
   ctx.font         = 'bold 220px Arial, sans-serif'
   ctx.textAlign    = 'center'
@@ -76,6 +71,33 @@ function calcDistance(lat1, lon1, lat2, lon2) {
 }
 
 // ============================================================
+//  方位角計算（現在地 → 目的地、度数法、北=0、時計回り）
+// ============================================================
+function calcBearing(lat1, lon1, lat2, lon2) {
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const lat1R = lat1 * Math.PI / 180
+  const lat2R = lat2 * Math.PI / 180
+  const y = Math.sin(dLon) * Math.cos(lat2R)
+  const x = Math.cos(lat1R) * Math.sin(lat2R)
+            - Math.sin(lat1R) * Math.cos(lat2R) * Math.cos(dLon)
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
+}
+
+// ============================================================
+//  方向矢印を更新
+// ============================================================
+let currentBearing = null   // 目的地への方位角
+let deviceHeading  = null   // デバイスのコンパス方位
+
+function updateArrow() {
+  if (currentBearing === null || deviceHeading === null) return
+  // 矢印の回転 = 目的地方位 - 端末方位
+  const angle = (currentBearing - deviceHeading + 360) % 360
+  document.getElementById('arrow-svg').style.transform = `rotate(${angle}deg)`
+  document.getElementById('direction-indicator').classList.add('visible')
+}
+
+// ============================================================
 //  UI 更新
 // ============================================================
 function updateUI(distMeters) {
@@ -85,11 +107,52 @@ function updateUI(distMeters) {
   badge.textContent = `📍 ${Math.round(distMeters)} m`
 
   if (distMeters <= CONFIG.arrivedThreshold) {
-    hint.textContent = '🎉 到着！ARを見てください'
+    hint.textContent = '🎉 到着！カメラを向けてください'
   } else if (distMeters < 200) {
     hint.textContent = `もうすぐ！あと約 ${Math.round(distMeters)} m`
   } else {
     hint.textContent = `目的地まで約 ${Math.round(distMeters)} m`
+  }
+}
+
+// ============================================================
+//  コンパス（DeviceOrientationEvent）セットアップ
+// ============================================================
+function startCompass() {
+  window.addEventListener('deviceorientationabsolute', onOrientation, true)
+  window.addEventListener('deviceorientation', onOrientation, true)
+}
+
+function onOrientation(e) {
+  // iOS: webkitCompassHeading（北=0、時計回り）
+  // Android absolute: 360 - alpha（補正して北=0、時計回りに変換）
+  if (e.webkitCompassHeading != null) {
+    deviceHeading = e.webkitCompassHeading
+  } else if (e.absolute && e.alpha != null) {
+    deviceHeading = (360 - e.alpha) % 360
+  } else if (e.alpha != null) {
+    deviceHeading = (360 - e.alpha) % 360
+  }
+  updateArrow()
+}
+
+function requestCompassPermission() {
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOS 13+ はユーザー操作から許可が必要
+    const btn = document.getElementById('compass-btn')
+    btn.style.display = 'block'
+    btn.addEventListener('click', () => {
+      DeviceOrientationEvent.requestPermission().then(state => {
+        if (state === 'granted') {
+          startCompass()
+          btn.style.display = 'none'
+        }
+      }).catch(console.warn)
+    })
+  } else {
+    // Android / 古いiOS は許可不要
+    startCompass()
   }
 }
 
@@ -101,18 +164,20 @@ window.addEventListener('DOMContentLoaded', () => {
   const img = document.getElementById('bubble-img')
   img.src   = createBubbleDataURL(CONFIG.label)
 
-  // A-Frame シーンにGPS座標をセット
+  // GPS座標をセット
   const place = document.getElementById('ar-place')
   place.setAttribute('gps-entity-place',
     `latitude: ${CONFIG.latitude}; longitude: ${CONFIG.longitude}`)
 
-  // GPS 取得（watchPosition で直接管理）
+  // コンパス開始
+  requestCompassPermission()
+
+  // GPS 取得
   if (!navigator.geolocation) {
     document.getElementById('hint').textContent = 'このブラウザはGPS非対応です'
     return
   }
 
-  // 10秒経っても位置が取れなければ案内を出す
   const gpsTimeout = setTimeout(() => {
     const hint = document.getElementById('hint')
     if (hint.textContent === 'GPS を取得中...') {
@@ -123,11 +188,13 @@ window.addEventListener('DOMContentLoaded', () => {
   navigator.geolocation.watchPosition(
     pos => {
       clearTimeout(gpsTimeout)
-      const dist = calcDistance(
-        pos.coords.latitude, pos.coords.longitude,
-        CONFIG.latitude, CONFIG.longitude
-      )
+      const { latitude, longitude } = pos.coords
+      const dist = calcDistance(latitude, longitude, CONFIG.latitude, CONFIG.longitude)
       updateUI(dist)
+
+      // 方位角を更新
+      currentBearing = calcBearing(latitude, longitude, CONFIG.latitude, CONFIG.longitude)
+      updateArrow()
     },
     err => {
       clearTimeout(gpsTimeout)
