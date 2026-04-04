@@ -4,54 +4,73 @@
 // ============================================================
 
 // ============================================================
-//  吹き出しテクスチャを Canvas で生成
+//  満月テクスチャを Canvas で生成
 // ============================================================
-function createBubbleDataURL(text) {
-  const W = 1024, H = 640
+function createBubbleDataURL(_text) {
+  const S   = 1024
+  const CX  = S / 2, CY = S / 2
+  const R   = 460    // 月の半径
+
   const canvas = document.createElement('canvas')
-  canvas.width  = W
-  canvas.height = H
+  canvas.width  = S
+  canvas.height = S
   const ctx = canvas.getContext('2d')
 
-  const R      = 70
-  const PTR    = 90
-  const BODY_H = 460
-
-  ctx.shadowColor   = 'rgba(0,0,0,0.3)'
-  ctx.shadowBlur    = 18
-  ctx.shadowOffsetY = 6
-
+  // --- 外側のグロー ---
+  const glow = ctx.createRadialGradient(CX, CY, R * 0.85, CX, CY, R * 1.1)
+  glow.addColorStop(0, 'rgba(255,240,160,0.55)')
+  glow.addColorStop(1, 'rgba(255,240,160,0)')
   ctx.beginPath()
-  ctx.moveTo(R, 0)
-  ctx.lineTo(W - R, 0)
-  ctx.quadraticCurveTo(W, 0, W, R)
-  ctx.lineTo(W, BODY_H - R)
-  ctx.quadraticCurveTo(W, BODY_H, W - R, BODY_H)
-  ctx.lineTo(W / 2 + PTR, BODY_H)
-  ctx.lineTo(W / 2, H)
-  ctx.lineTo(W / 2 - PTR, BODY_H)
-  ctx.lineTo(R, BODY_H)
-  ctx.quadraticCurveTo(0, BODY_H, 0, BODY_H - R)
-  ctx.lineTo(0, R)
-  ctx.quadraticCurveTo(0, 0, R, 0)
-  ctx.closePath()
-
-  const grad = ctx.createLinearGradient(0, 0, 0, BODY_H)
-  grad.addColorStop(0, '#ffffff')
-  grad.addColorStop(1, '#e8f4ff')
-  ctx.fillStyle = grad
+  ctx.arc(CX, CY, R * 1.1, 0, Math.PI * 2)
+  ctx.fillStyle = glow
   ctx.fill()
 
-  ctx.shadowColor = 'transparent'
-  ctx.strokeStyle = '#4aa8ff'
-  ctx.lineWidth   = 6
-  ctx.stroke()
+  // --- 月本体（放射グラデーション）---
+  const moon = ctx.createRadialGradient(CX - R * 0.25, CY - R * 0.25, R * 0.05, CX, CY, R)
+  moon.addColorStop(0.0, '#fffde8')
+  moon.addColorStop(0.4, '#fff5b0')
+  moon.addColorStop(0.75, '#f5d96b')
+  moon.addColorStop(1.0,  '#c8a830')
+  ctx.beginPath()
+  ctx.arc(CX, CY, R, 0, Math.PI * 2)
+  ctx.fillStyle = moon
+  ctx.fill()
 
-  ctx.fillStyle    = '#1a1a2e'
-  ctx.font         = 'bold 220px Arial, sans-serif'
-  ctx.textAlign    = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(text, W / 2, BODY_H / 2)
+  // --- クレーター ---
+  const craters = [
+    { x: CX - 120, y: CY - 140, r: 55, dark: 0.10 },
+    { x: CX + 160, y: CY - 60,  r: 40, dark: 0.08 },
+    { x: CX - 60,  y: CY + 180, r: 70, dark: 0.09 },
+    { x: CX + 100, y: CY + 130, r: 30, dark: 0.07 },
+    { x: CX + 30,  y: CY - 220, r: 35, dark: 0.06 },
+    { x: CX - 220, y: CY + 60,  r: 45, dark: 0.08 },
+  ]
+  for (const c of craters) {
+    const cg = ctx.createRadialGradient(c.x - c.r * 0.2, c.y - c.r * 0.2, c.r * 0.1, c.x, c.y, c.r)
+    cg.addColorStop(0, `rgba(180,140,40,${c.dark * 0.4})`)
+    cg.addColorStop(0.6, `rgba(140,100,20,${c.dark})`)
+    cg.addColorStop(1,   `rgba(200,170,80,${c.dark * 0.3})`)
+    ctx.beginPath()
+    ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2)
+    ctx.fillStyle = cg
+    ctx.fill()
+  }
+
+  // --- 月面の模様（海）---
+  ctx.globalAlpha = 0.13
+  ctx.fillStyle = '#8b6914'
+  ctx.beginPath(); ctx.ellipse(CX - 80, CY + 80, 130, 90, -0.3, 0, Math.PI * 2); ctx.fill()
+  ctx.beginPath(); ctx.ellipse(CX + 100, CY - 100, 80, 60, 0.5, 0, Math.PI * 2); ctx.fill()
+  ctx.globalAlpha = 1.0
+
+  // --- 月の縁を軽くシャドウでなじませる ---
+  const edge = ctx.createRadialGradient(CX, CY, R * 0.82, CX, CY, R)
+  edge.addColorStop(0, 'rgba(0,0,0,0)')
+  edge.addColorStop(1, 'rgba(0,0,0,0.22)')
+  ctx.beginPath()
+  ctx.arc(CX, CY, R, 0, Math.PI * 2)
+  ctx.fillStyle = edge
+  ctx.fill()
 
   return canvas.toDataURL('image/png')
 }
