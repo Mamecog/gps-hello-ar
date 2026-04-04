@@ -7,15 +7,15 @@
 //  吹き出しテクスチャを Canvas で生成
 // ============================================================
 function createBubbleDataURL(text) {
-  const W = 512, H = 320
+  const W = 1024, H = 640
   const canvas = document.createElement('canvas')
   canvas.width  = W
   canvas.height = H
   const ctx = canvas.getContext('2d')
 
-  const R      = 40    // 角丸半径
-  const PTR    = 50    // 下向き三角の幅
-  const BODY_H = 230   // 本体の高さ
+  const R      = 70    // 角丸半径
+  const PTR    = 90    // 下向き三角の幅
+  const BODY_H = 460   // 本体の高さ
 
   // ドロップシャドウ
   ctx.shadowColor   = 'rgba(0,0,0,0.3)'
@@ -53,7 +53,7 @@ function createBubbleDataURL(text) {
 
   // テキスト
   ctx.fillStyle    = '#1a1a2e'
-  ctx.font         = 'bold 110px Arial, sans-serif'
+  ctx.font         = 'bold 220px Arial, sans-serif'
   ctx.textAlign    = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(text, W / 2, BODY_H / 2)
@@ -106,26 +106,17 @@ window.addEventListener('DOMContentLoaded', () => {
   place.setAttribute('gps-entity-place',
     `latitude: ${CONFIG.latitude}; longitude: ${CONFIG.longitude}`)
 
-  // GPS 監視
-  if (!navigator.geolocation) {
-    document.getElementById('hint').textContent = 'このブラウザはGPS非対応です'
-    return
-  }
+  // GPS は AR.js の gps-camera が管理するのでそのイベントを使う
+  // （watchPosition を二重に呼ぶと iOS Safari でパーミッションエラーになる）
+  const scene = document.querySelector('a-scene')
+  scene.addEventListener('loaded', () => {
+    const camera = document.querySelector('[gps-camera]')
+    if (!camera) return
 
-  document.getElementById('hint').textContent = 'GPS を取得中...'
-
-  navigator.geolocation.watchPosition(
-    pos => {
-      const dist = calcDistance(
-        pos.coords.latitude, pos.coords.longitude,
-        CONFIG.latitude, CONFIG.longitude
-      )
+    camera.addEventListener('gps-camera-update-position', e => {
+      const { latitude, longitude } = e.detail.position
+      const dist = calcDistance(latitude, longitude, CONFIG.latitude, CONFIG.longitude)
       updateUI(dist)
-    },
-    err => {
-      document.getElementById('hint').textContent = 'GPS の許可が必要です'
-      console.warn('GPS error:', err)
-    },
-    { enableHighAccuracy: true, maximumAge: 3000 }
-  )
+    })
+  })
 })
