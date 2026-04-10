@@ -192,7 +192,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const lon = CONFIG.longitude + dx * LON_PER_M
 
         const entity = document.createElement('a-entity')
-        entity.setAttribute('gps-entity-place', `latitude: ${lat}; longitude: ${lon}`)
+        entity.setAttribute('gps-projected-entity-place', `latitude: ${lat}; longitude: ${lon}`)
 
         HEIGHTS.forEach((y, hi) => {
           const moon = document.createElement('a-sphere')

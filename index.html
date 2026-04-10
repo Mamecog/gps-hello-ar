@@ -7,7 +7,7 @@
 
   <!-- A-Frame + AR.js（location-based） -->
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
 
   <!-- 設定 & カスタムコンポーネント -->
   <script src="config.js"></script>
@@ -175,7 +175,7 @@
       <img id="bubble-img">
     </a-assets>
 
-    <a-camera gps-camera rotation-reader></a-camera>
+    <a-camera gps-projected-camera rotation-reader></a-camera>
   </a-scene>
 
   <script>
