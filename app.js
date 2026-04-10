@@ -196,7 +196,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         HEIGHTS.forEach((y, hi) => {
           const moon = document.createElement('a-sphere')
-          moon.setAttribute('radius', '1.5')
+          moon.setAttribute('radius', '0.3')
           moon.setAttribute('color', '#f5d96b')
           moon.setAttribute('material', 'shader: flat; side: double')
           moon.setAttribute('position', `0 ${y} 0`)

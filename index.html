@@ -179,15 +179,25 @@
   </a-scene>
 
   <script>
+    // 許可済みならオーバーレイを即非表示
+    if (sessionStorage.getItem('compassGranted')) {
+      document.getElementById('start-overlay').style.display = 'none'
+    }
+
     document.getElementById('start-btn').addEventListener('click', async () => {
-      // iOSコンパス許可
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
         try {
-          await DeviceOrientationEvent.requestPermission()
+          const state = await DeviceOrientationEvent.requestPermission()
+          if (state === 'granted') {
+            // 許可後にリロード → AR.jsがコンパス付きで初期化される
+            sessionStorage.setItem('compassGranted', '1')
+            location.reload()
+            return
+          }
         } catch (e) { console.warn(e) }
       }
-      // オーバーレイを消す
+      // Android・古いiOSはそのままオーバーレイを消す
       document.getElementById('start-overlay').style.display = 'none'
     })
   </script>
