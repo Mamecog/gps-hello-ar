@@ -183,12 +183,13 @@ window.addEventListener('DOMContentLoaded', () => {
   const img = document.getElementById('bubble-img')
   img.src   = createBubbleDataURL(CONFIG.label)
 
-  // GPS座標を中心に 4×5 グリッド（2m間隔）で20個配置
+  // GPS座標を中心に 4×10 グリッド（2m間隔）で40個配置
   const LAT_PER_M = 1 / 111000
   const LON_PER_M = 1 / (111000 * Math.cos(CONFIG.latitude * Math.PI / 180))
   const scene = document.querySelector('a-scene')
-  const COLS = 4, ROWS = 5
+  const COLS = 4, ROWS = 10
 
+  let num = 1
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const dx = (c - (COLS - 1) / 2) * 2   // 東西オフセット（m）
@@ -205,8 +206,18 @@ window.addEventListener('DOMContentLoaded', () => {
       moon.setAttribute('height', '10')
       moon.setAttribute('position', '0 2 0')
 
+      const label = document.createElement('a-text')
+      label.setAttribute('value', String(num))
+      label.setAttribute('position', '0 8 0')
+      label.setAttribute('align', 'center')
+      label.setAttribute('color', 'white')
+      label.setAttribute('width', '30')
+      label.setAttribute('wrap-count', '3')
+
       entity.appendChild(moon)
+      entity.appendChild(label)
       scene.appendChild(entity)
+      num++
     }
   }
 
