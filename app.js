@@ -279,7 +279,10 @@ window.addEventListener('DOMContentLoaded', () => {
         2: 'GPS シグナルが弱いです。屋外に出てください',
         3: 'GPS タイムアウト。再読み込みしてください',
       }
-      document.getElementById('hint').textContent = msg[err.code] || 'GPS エラー'
+      const errText = msg[err.code] || 'GPS エラー'
+      document.getElementById('hint').textContent = errText
+      const dbg = document.getElementById('debug-panel')
+      if (dbg) dbg.innerHTML = `❌ GPSエラー code:${err.code}<br>${err.message}`
       console.warn('GPS error:', err)
     },
     { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
