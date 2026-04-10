@@ -140,14 +140,18 @@
 
   <a-scene
     vr-mode-ui="enabled: false"
-    arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false"
-    renderer="antialias: true; alpha: true; logarithmicDepthBuffer: true;"
-    loading-screen="dotsColor: white; backgroundColor: black"
+    arjs="sourceType: webcam; debugUIEnabled: false"
+    renderer="antialias: true; alpha: true"
     embedded
   >
     <a-assets>
       <img id="bubble-img">
     </a-assets>
+
+    <!-- テスト用: 現在地に巨大な赤球（GPS entityが動くか確認） -->
+    <a-entity gps-entity-place="latitude: 35.621537; longitude: 139.696217">
+      <a-sphere radius="20" color="red" material="shader: flat; opacity: 0.8"></a-sphere>
+    </a-entity>
 
     <a-camera gps-camera rotation-reader></a-camera>
   </a-scene>
