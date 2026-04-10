@@ -144,15 +144,25 @@ function startCompass() {
 
 function onOrientation(e) {
   // iOS: webkitCompassHeading（北=0、時計回り）
-  // Android absolute: 360 - alpha（補正して北=0、時計回りに変換）
+  // Android absolute: 360 - alpha
   if (e.webkitCompassHeading != null) {
     deviceHeading = e.webkitCompassHeading
-  } else if (e.absolute && e.alpha != null) {
-    deviceHeading = (360 - e.alpha) % 360
   } else if (e.alpha != null) {
     deviceHeading = (360 - e.alpha) % 360
   }
   updateArrow()
+
+  // カメラ回転を直接設定
+  // pitch: beta=90(縦持ち)→0、beta=0(水平)→90(真下)
+  // yaw: コンパス方位の逆符号
+  // roll: gammaの逆符号
+  if (e.beta != null && deviceHeading !== null) {
+    const pitch = 90 - e.beta
+    const yaw   = -deviceHeading
+    const roll  = -(e.gamma || 0)
+    const cam = document.querySelector('a-camera')
+    if (cam) cam.setAttribute('rotation', `${pitch.toFixed(1)} ${yaw.toFixed(1)} ${roll.toFixed(1)}`)
+  }
 }
 
 // ============================================================
