@@ -3,207 +3,198 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>GPS Hello AR</title>
-
-  <!-- A-Frame + AR.js（location-based） -->
-  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
-
-  <!-- 設定 & カスタムコンポーネント -->
-  <script src="config.js"></script>
-  <script src="app.js"></script>
-
+  <title>顔AR ❤️</title>
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { overflow: hidden; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
 
-    /* 起動オーバーレイ（iOSコンパス許可用） */
-    #start-overlay {
+    #video {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.88);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 20px;
-      z-index: 9999;
-    }
-    #start-overlay p {
-      color: #fff;
-      font-family: sans-serif;
-      font-size: 16px;
-      text-align: center;
-      padding: 0 32px;
-      line-height: 1.7;
-    }
-    #start-btn {
-      background: #4aa8ff;
-      color: #fff;
-      border: none;
-      padding: 16px 40px;
-      border-radius: 28px;
-      font-size: 18px;
-      font-family: sans-serif;
-      cursor: pointer;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);   /* 鏡像 */
     }
 
-    /* 下部ヒント */
-    #hint {
+    #overlay {
       position: fixed;
-      bottom: 32px;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      /* canvas は JS で pixel 寸法を video に合わせ、CSS で引き伸ばして表示 */
+      transform: scaleX(-1);   /* video と同じ鏡像 */
+    }
+
+    #status {
+      position: fixed;
+      bottom: 36px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(0,0,0,0.65);
+      background: rgba(0,0,0,0.70);
       color: #fff;
-      padding: 10px 22px;
-      border-radius: 20px;
+      font-family: sans-serif;
       font-size: 15px;
-      font-family: sans-serif;
-      z-index: 999;
-      text-align: center;
+      padding: 10px 28px;
+      border-radius: 24px;
+      z-index: 10;
       pointer-events: none;
       white-space: nowrap;
+      transition: opacity 0.6s;
     }
-
-    /* 距離バッジ */
-    #distance-badge {
-      position: fixed;
-      top: 20px;
-      right: 16px;
-      background: rgba(0,0,0,0.55);
-      color: #7ef;
-      padding: 6px 14px;
-      border-radius: 14px;
-      font-size: 13px;
-      font-family: monospace;
-      z-index: 999;
-      pointer-events: none;
-    }
-
-    /* 方向矢印インジケーター */
-    #direction-indicator {
-      position: fixed;
-      top: 50%;
-      left: 20px;
-      transform: translateY(-50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      z-index: 999;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.4s;
-    }
-    #direction-indicator.visible { opacity: 1; }
-
-    #arrow-ring {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: rgba(0,0,0,0.6);
-      border: 2px solid rgba(255,255,255,0.4);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    #arrow-svg {
-      width: 36px;
-      height: 36px;
-      transition: transform 0.3s ease;
-    }
-    #direction-label {
-      font-size: 11px;
-      font-family: sans-serif;
-      color: #fff;
-      background: rgba(0,0,0,0.5);
-      padding: 2px 8px;
-      border-radius: 8px;
-      white-space: nowrap;
-    }
-
-    /* デバッグ表示 */
-    #debug-panel {
-      position: fixed;
-      bottom: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.75);
-      color: #0f0;
-      font-family: monospace;
-      font-size: 11px;
-      padding: 8px 14px;
-      border-radius: 10px;
-      z-index: 999;
-      pointer-events: none;
-      text-align: center;
-      line-height: 1.6;
-    }
+    #status.hidden { opacity: 0; }
   </style>
 </head>
 <body>
+  <video id="video" playsinline muted autoplay></video>
+  <canvas id="overlay"></canvas>
+  <div id="status">モデルを読み込み中...</div>
 
-  <!-- 起動オーバーレイ: タップでカメラ・コンパス許可を一括取得 -->
-  <div id="start-overlay">
-    <p>カメラとコンパスの使用を許可して<br>ARを開始します</p>
-    <button id="start-btn">タップして開始</button>
-  </div>
+<script>
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights'
+const video   = document.getElementById('video')
+const overlay = document.getElementById('overlay')
+const status  = document.getElementById('status')
+const ctx     = overlay.getContext('2d')
 
-  <div id="hint">GPS を取得中...</div>
-  <div id="distance-badge"></div>
-  <div id="debug-panel">GPS待機中...</div>
+// ============================================================
+//  浮かぶハートのパーティクル
+// ============================================================
+const particles = []
 
-  <!-- 方向矢印 -->
-  <div id="direction-indicator">
-    <div id="arrow-ring">
-      <svg id="arrow-svg" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <polygon points="18,2 28,28 18,22 8,28" fill="#4aa8ff"/>
-        <polygon points="18,2 28,28 18,22 8,28" fill="white" opacity="0.25"/>
-      </svg>
-    </div>
-    <div id="direction-label">この方向</div>
-  </div>
+function spawnHearts(cx, cy, faceW) {
+  const n = 2 + Math.floor(Math.random() * 3)
+  for (let i = 0; i < n; i++) {
+    particles.push({
+      x:    cx + (Math.random() - 0.5) * faceW * 0.6,
+      y:    cy,
+      vx:   (Math.random() - 0.5) * 1.8,
+      vy:   -(1.8 + Math.random() * 2.5),
+      size: faceW * (0.18 + Math.random() * 0.18),
+      life: 1.0,
+    })
+  }
+}
 
-  <a-scene
-    vr-mode-ui="enabled: false"
-    arjs="sourceType: webcam; debugUIEnabled: false"
-    renderer="antialias: true; alpha: true"
-    embedded
-  >
-    <a-assets>
-      <img id="bubble-img">
-    </a-assets>
+// ============================================================
+//  レンダーループ（rAF 60fps）
+// ============================================================
+let latestDets = []
 
-    <a-camera look-controls="enabled: false" compass-camera>
-      <!-- カメラ正面確認用インジケーター（常に中央に見えるはず） -->
-      <a-sphere position="0 0 -5" radius="0.08" color="#4af" material="shader: flat"></a-sphere>
-    </a-camera>
-  </a-scene>
+function renderLoop() {
+  ctx.clearRect(0, 0, overlay.width, overlay.height)
 
-  <script>
-    // 許可済みならオーバーレイを即非表示
-    if (sessionStorage.getItem('compassGranted')) {
-      document.getElementById('start-overlay').style.display = 'none'
+  // 顔の上に固定ハート
+  for (const det of latestDets) {
+    const { x, y, width } = det.box
+    const cx   = x + width / 2
+    const size = Math.round(width * 0.6)
+    ctx.font         = `${size}px serif`
+    ctx.textAlign    = 'center'
+    ctx.textBaseline = 'bottom'
+    ctx.globalAlpha  = 0.92
+    ctx.fillText('❤️', cx, y - width * 0.05)
+  }
+
+  // 浮かぶハートを更新・描画
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i]
+    p.x    += p.vx
+    p.y    += p.vy
+    p.life -= 0.017
+    if (p.life <= 0) { particles.splice(i, 1); continue }
+
+    ctx.globalAlpha  = p.life * 0.85
+    ctx.font         = `${Math.round(p.size)}px serif`
+    ctx.textAlign    = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('❤️', p.x, p.y)
+  }
+
+  ctx.globalAlpha = 1
+  requestAnimationFrame(renderLoop)
+}
+
+// ============================================================
+//  顔検出ループ（非同期、約 15fps）
+// ============================================================
+const DET_OPTIONS = new faceapi.TinyFaceDetectorOptions({
+  inputSize: 224,
+  scoreThreshold: 0.45,
+})
+
+async function detectLoop() {
+  let lastSpawn = 0
+
+  while (true) {
+    if (video.readyState >= 2) {
+      const dets = await faceapi.detectAllFaces(video, DET_OPTIONS)
+
+      // canvas の pixel 寸法 → video の pixel 寸法にスケール
+      latestDets = faceapi.resizeResults(dets, {
+        width:  overlay.width,
+        height: overlay.height,
+      })
+
+      const now = Date.now()
+      if (latestDets.length > 0 && now - lastSpawn > 350) {
+        lastSpawn = now
+        for (const det of latestDets) {
+          const { x, y, width } = det.box
+          spawnHearts(x + width / 2, y, width)
+        }
+      }
     }
 
-    document.getElementById('start-btn').addEventListener('click', async (e) => {
-      e.stopPropagation()
-      if (typeof DeviceOrientationEvent !== 'undefined' &&
-          typeof DeviceOrientationEvent.requestPermission === 'function') {
-        try {
-          const state = await DeviceOrientationEvent.requestPermission()
-          if (state === 'granted') {
-            // 許可後にリロード → AR.jsがコンパス付きで初期化される
-            sessionStorage.setItem('compassGranted', '1')
-            location.reload()
-            return
-          }
-        } catch (e) { console.warn(e) }
-      }
-      // Android・古いiOSはそのままオーバーレイを消す
-      document.getElementById('start-overlay').style.display = 'none'
+    await new Promise(r => setTimeout(r, 66))   // ~15fps
+  }
+}
+
+// ============================================================
+//  canvas を video の pixel 寸法に同期
+// ============================================================
+function syncCanvas() {
+  if (video.videoWidth > 0) {
+    overlay.width  = video.videoWidth
+    overlay.height = video.videoHeight
+  }
+}
+
+// ============================================================
+//  初期化
+// ============================================================
+async function init() {
+  try {
+    status.textContent = 'モデルを読み込み中...'
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL)
+
+    status.textContent = 'カメラを起動中...'
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
     })
-  </script>
+    video.srcObject = stream
+
+    await new Promise(resolve => { video.onloadedmetadata = resolve })
+    await video.play()
+    syncCanvas()
+
+    window.addEventListener('resize', syncCanvas)
+
+    status.textContent = '顔を向けてください ❤️'
+    setTimeout(() => status.classList.add('hidden'), 2800)
+
+    renderLoop()
+    detectLoop()   // async, 独立して走り続ける
+
+  } catch (err) {
+    status.textContent = 'エラー: ' + err.message
+    console.error(err)
+  }
+}
+
+init()
+</script>
 </body>
 </html>
