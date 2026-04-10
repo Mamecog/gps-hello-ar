@@ -142,42 +142,43 @@ function startCompass() {
   window.addEventListener('deviceorientation', onOrientation, true)
 }
 
+let lastBeta = 90  // デフォルト縦持ち
+
 function onOrientation(e) {
-  // iOS: webkitCompassHeading（北=0、時計回り）
-  // Android absolute: 360 - alpha
   if (e.webkitCompassHeading != null) {
     deviceHeading = e.webkitCompassHeading
   } else if (e.alpha != null) {
     deviceHeading = (360 - e.alpha) % 360
   }
+  if (e.beta != null) lastBeta = e.beta
   updateArrow()
 
-  // カメラ回転を直接設定
-  // pitch: beta=90(縦持ち)→0、beta=0(水平)→90(真下)
-  // yaw: コンパス方位の逆符号
-  // roll: gammaの逆符号
-  if (e.beta != null && deviceHeading !== null) {
+  // カメラ回転（YXZ順）
+  if (deviceHeading !== null) {
     const cam = document.querySelector('a-camera')
     if (!cam) return
-    // YXZ順（ヨー→ピッチ）で正しい方向を計算
     const obj = cam.object3D
     obj.rotation.order = 'YXZ'
     obj.rotation.y = -deviceHeading * Math.PI / 180
-    obj.rotation.x =  (90 - e.beta) * Math.PI / 180
+    obj.rotation.x = (90 - lastBeta) * Math.PI / 180
     obj.rotation.z = 0
   }
+
+  // コンパスが更新されるたびにエンティティ位置も更新
+  updateEntityPositions()
 }
 
 // ============================================================
-//  AR エンティティ（GPS位置を自前で更新）
+//  AR エンティティ（カメラ子要素 + GPS×コンパスで相対座標）
 // ============================================================
 const arEntities = []   // { el, targetLat, targetLon }
-let positionFixed = false  // タップで固定
+let positionFixed = false
+let lastUserLat = null, lastUserLon = null
 
 const createAREntities = () => {
   const LAT_PER_M = 1 / 111000
   const LON_PER_M = 1 / (111000 * Math.cos(CONFIG.latitude * Math.PI / 180))
-  const scene = document.querySelector('a-scene')
+  const cam = document.querySelector('a-camera')  // ← カメラの子要素にする
   const COLS = 4, ROWS = 10
 
   const HEIGHTS = []
@@ -195,7 +196,6 @@ const createAREntities = () => {
       const targetLon = CONFIG.longitude + dx * LON_PER_M
 
       const entity = document.createElement('a-entity')
-      entity.setAttribute('position', '0 0 -9999')   // GPS更新まで遠ざけておく
 
       HEIGHTS.forEach((y, hi) => {
         const sphere = document.createElement('a-sphere')
@@ -217,21 +217,36 @@ const createAREntities = () => {
         entity.appendChild(sphere)
       })
 
-      scene.appendChild(entity)
+      cam.appendChild(entity)
       arEntities.push({ el: entity, targetLat, targetLon })
       num++
     }
   }
 }
 
-// GPS更新のたびに全エンティティの位置を再計算（固定後はスキップ）
+// エンティティ位置をカメラ相対座標で更新
+// ・カメラの子要素なので、コンパス方位を使って「world → camera-local」に変換する
+// ・これにより「向いた方向に球が現れる」動作になる
 function updateEntityPositions(userLat, userLon) {
-  if (positionFixed) return
-  const cosLat = Math.cos(userLat * Math.PI / 180)
+  // 引数があればlastを更新、なければlastを使う
+  if (userLat !== undefined) { lastUserLat = userLat; lastUserLon = userLon }
+  if (!lastUserLat || deviceHeading === null || positionFixed) return
+
+  const theta  = deviceHeading * Math.PI / 180
+  const cosT   = Math.cos(theta)
+  const sinT   = Math.sin(theta)
+  const cosLat = Math.cos(lastUserLat * Math.PI / 180)
+
   arEntities.forEach(({ el, targetLat, targetLon }) => {
-    const east  = (targetLon - userLon) * 111000 * cosLat
-    const north = (targetLat - userLat) * 111000
-    el.setAttribute('position', `${east.toFixed(3)} 0 ${(-north).toFixed(3)}`)
+    const east  = (targetLon - lastUserLon) * 111000 * cosLat
+    const north = (targetLat - lastUserLat) * 111000
+
+    // world オフセットをカメラローカル座標に回転
+    // （カメラが heading=θ を向いているので R_y(θ) の逆変換）
+    const x =  east * cosT - north * sinT
+    const z = -east * sinT - north * cosT
+
+    el.object3D.position.set(x, -1.6, z)  // Y=-1.6: カメラ高さ1.6mから地面へのオフセット
   })
 }
 
@@ -283,14 +298,14 @@ window.addEventListener('DOMContentLoaded', () => {
       const dist = calcDistance(latitude, longitude, CONFIG.latitude, CONFIG.longitude)
       updateUI(dist)
 
-      // エンティティ位置を更新
+      // エンティティ位置を更新（latlon引数あり）
       updateEntityPositions(latitude, longitude)
 
-      // 固定前のヒント（GPS取得できたら案内）
+      // 固定前のヒント
       if (!positionFixed) {
         const hint = document.getElementById('hint')
         if (hint.textContent === 'GPS を取得中...') {
-          hint.textContent = 'コンテンツが見えたら画面をタップして固定'
+          hint.textContent = '矢印の方向を向いてタップして固定'
         }
       }
 
