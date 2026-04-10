@@ -199,7 +199,7 @@ const createAREntities = () => {
 
       HEIGHTS.forEach((y, hi) => {
         const sphere = document.createElement('a-sphere')
-        sphere.setAttribute('radius', '0.3')
+        sphere.setAttribute('radius', '1.5')
         sphere.setAttribute('color', '#f5d96b')
         sphere.setAttribute('material', 'shader: flat; side: double')
         sphere.setAttribute('position', `0 ${y} 0`)
@@ -343,9 +343,18 @@ window.addEventListener('DOMContentLoaded', () => {
       // デバッグ表示
       const dbg = document.getElementById('debug-panel')
       if (dbg) {
+        // 最近傍エンティティのカメラローカル距離
+        let nearestDist = Infinity
+        arEntities.forEach(({ el }) => {
+          const p = el.object3D.position
+          const d = Math.sqrt(p.x * p.x + p.z * p.z)
+          if (d < nearestDist) nearestDist = d
+        })
+        const nearStr = nearestDist === Infinity ? '-' : nearestDist.toFixed(1) + 'm'
         dbg.innerHTML =
           `${VERSION} | 現在地: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}<br>` +
-          `精度: ±${Math.round(accuracy)}m　更新: ${posCount}回`
+          `精度: ±${Math.round(accuracy)}m　更新: ${posCount}回<br>` +
+          `最近エンティティ: ${nearStr} | heading: ${deviceHeading !== null ? Math.round(deviceHeading) + '°' : '-'}`
       }
 
       // 方位角を更新
