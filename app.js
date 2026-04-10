@@ -211,7 +211,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         HEIGHTS.forEach((y, hi) => {
           const moon = document.createElement('a-sphere')
-          moon.setAttribute('radius', '5')
+          moon.setAttribute('radius', '0.4')
           moon.setAttribute('color', '#f5d96b')
           moon.setAttribute('material', 'shader: flat; side: double')
           moon.setAttribute('position', `0 ${y} 0`)
@@ -219,10 +219,10 @@ window.addEventListener('DOMContentLoaded', () => {
           if (hi === HEIGHTS.length - 1) {
             const label = document.createElement('a-text')
             label.setAttribute('value', String(num))
-            label.setAttribute('position', `0 ${y + 6} 0`)
+            label.setAttribute('position', `0 ${y + 0.6} 0`)
             label.setAttribute('align', 'center')
             label.setAttribute('color', 'white')
-            label.setAttribute('width', '30')
+            label.setAttribute('width', '4')
             label.setAttribute('wrap-count', '3')
             entity.appendChild(label)
           }
