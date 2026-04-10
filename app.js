@@ -157,11 +157,14 @@ function onOrientation(e) {
   // yaw: コンパス方位の逆符号
   // roll: gammaの逆符号
   if (e.beta != null && deviceHeading !== null) {
-    const pitch = 90 - e.beta   // beta=90(縦持ち)→pitch=0(正面)
-    const yaw   = -deviceHeading
-    // rollは除去（モバイルARでは不要、混乱の原因）
     const cam = document.querySelector('a-camera')
-    if (cam) cam.setAttribute('rotation', `${pitch.toFixed(1)} ${yaw.toFixed(1)} 0`)
+    if (!cam) return
+    // YXZ順（ヨー→ピッチ）で正しい方向を計算
+    const obj = cam.object3D
+    obj.rotation.order = 'YXZ'
+    obj.rotation.y = -deviceHeading * Math.PI / 180
+    obj.rotation.x =  (90 - e.beta) * Math.PI / 180
+    obj.rotation.z = 0
   }
 }
 
