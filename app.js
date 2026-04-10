@@ -169,6 +169,7 @@ function onOrientation(e) {
 //  AR エンティティ（GPS位置を自前で更新）
 // ============================================================
 const arEntities = []   // { el, targetLat, targetLon }
+let positionFixed = false  // タップで固定
 
 const createAREntities = () => {
   const LAT_PER_M = 1 / 111000
@@ -220,13 +221,13 @@ const createAREntities = () => {
   }
 }
 
-// GPS更新のたびに全エンティティの位置を再計算
+// GPS更新のたびに全エンティティの位置を再計算（固定後はスキップ）
 function updateEntityPositions(userLat, userLon) {
+  if (positionFixed) return
   const cosLat = Math.cos(userLat * Math.PI / 180)
   arEntities.forEach(({ el, targetLat, targetLon }) => {
     const east  = (targetLon - userLon) * 111000 * cosLat
     const north = (targetLat - userLat) * 111000
-    // A-Frame座標系: X=東, Y=上, Z=南（手前）
     el.setAttribute('position', `${east.toFixed(3)} 0 ${(-north).toFixed(3)}`)
   })
 }
@@ -237,6 +238,17 @@ function updateEntityPositions(userLat, userLon) {
 window.addEventListener('DOMContentLoaded', () => {
   // コンパス開始（オーバーレイで許可済み）
   startCompass()
+
+  // タップで位置を固定
+  document.addEventListener('click', () => {
+    if (!positionFixed && arEntities.length > 0) {
+      positionFixed = true
+      document.getElementById('hint').textContent = '📌 位置を固定しました（再タップで解除）'
+    } else if (positionFixed) {
+      positionFixed = false
+      document.getElementById('hint').textContent = '🔄 位置の固定を解除しました'
+    }
+  })
 
   const scene = document.querySelector('a-scene')
   if (scene.hasLoaded) {
