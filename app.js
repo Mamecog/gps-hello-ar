@@ -210,10 +210,10 @@ window.addEventListener('DOMContentLoaded', () => {
         entity.setAttribute('gps-entity-place', `latitude: ${lat}; longitude: ${lon}`)
 
         HEIGHTS.forEach((y, hi) => {
-          const moon = document.createElement('a-image')
-          moon.setAttribute('src', '#bubble-img')
-          moon.setAttribute('width', '10')
-          moon.setAttribute('height', '10')
+          const moon = document.createElement('a-sphere')
+          moon.setAttribute('radius', '5')
+          moon.setAttribute('color', '#f5d96b')
+          moon.setAttribute('material', 'shader: flat; side: double')
           moon.setAttribute('position', `0 ${y} 0`)
 
           if (hi === HEIGHTS.length - 1) {
