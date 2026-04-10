@@ -157,11 +157,11 @@ function onOrientation(e) {
   // yaw: コンパス方位の逆符号
   // roll: gammaの逆符号
   if (e.beta != null && deviceHeading !== null) {
-    const pitch = 90 - e.beta
+    const pitch = 90 - e.beta   // beta=90(縦持ち)→pitch=0(正面)
     const yaw   = -deviceHeading
-    const roll  = -(e.gamma || 0)
+    // rollは除去（モバイルARでは不要、混乱の原因）
     const cam = document.querySelector('a-camera')
-    if (cam) cam.setAttribute('rotation', `${pitch.toFixed(1)} ${yaw.toFixed(1)} ${roll.toFixed(1)}`)
+    if (cam) cam.setAttribute('rotation', `${pitch.toFixed(1)} ${yaw.toFixed(1)} 0`)
   }
 }
 
@@ -239,14 +239,15 @@ window.addEventListener('DOMContentLoaded', () => {
   // コンパス開始（オーバーレイで許可済み）
   startCompass()
 
-  // タップで位置を固定
-  document.addEventListener('click', () => {
-    if (!positionFixed && arEntities.length > 0) {
+  // canvasタップで位置を固定（UIボタンのクリックは除外）
+  document.querySelector('a-scene').addEventListener('click', () => {
+    if (arEntities.length === 0) return
+    if (!positionFixed) {
       positionFixed = true
-      document.getElementById('hint').textContent = '📌 位置を固定しました（再タップで解除）'
-    } else if (positionFixed) {
+      document.getElementById('hint').textContent = '📌 固定しました（再タップで解除）'
+    } else {
       positionFixed = false
-      document.getElementById('hint').textContent = '🔄 位置の固定を解除しました'
+      document.getElementById('hint').textContent = '▶ コンテンツを探しています...'
     }
   })
 
@@ -281,6 +282,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
       // エンティティ位置を更新
       updateEntityPositions(latitude, longitude)
+
+      // 固定前のヒント（GPS取得できたら案内）
+      if (!positionFixed) {
+        const hint = document.getElementById('hint')
+        if (hint.textContent === 'GPS を取得中...') {
+          hint.textContent = 'コンテンツが見えたら画面をタップして固定'
+        }
+      }
 
       // デバッグ表示
       const dbg = document.getElementById('debug-panel')

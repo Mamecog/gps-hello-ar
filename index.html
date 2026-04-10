@@ -184,7 +184,8 @@
       document.getElementById('start-overlay').style.display = 'none'
     }
 
-    document.getElementById('start-btn').addEventListener('click', async () => {
+    document.getElementById('start-btn').addEventListener('click', async (e) => {
+      e.stopPropagation()
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
         try {
