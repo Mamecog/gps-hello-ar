@@ -251,12 +251,22 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }, 10000)
 
+  let posCount = 0
   navigator.geolocation.watchPosition(
     pos => {
       clearTimeout(gpsTimeout)
-      const { latitude, longitude } = pos.coords
+      posCount++
+      const { latitude, longitude, accuracy } = pos.coords
       const dist = calcDistance(latitude, longitude, CONFIG.latitude, CONFIG.longitude)
       updateUI(dist)
+
+      // デバッグ表示
+      const dbg = document.getElementById('debug-panel')
+      if (dbg) {
+        dbg.innerHTML =
+          `現在地: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}<br>` +
+          `精度: ±${Math.round(accuracy)}m　更新: ${posCount}回`
+      }
 
       // 方位角を更新
       currentBearing = calcBearing(latitude, longitude, CONFIG.latitude, CONFIG.longitude)
