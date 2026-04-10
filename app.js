@@ -183,10 +183,32 @@ window.addEventListener('DOMContentLoaded', () => {
   const img = document.getElementById('bubble-img')
   img.src   = createBubbleDataURL(CONFIG.label)
 
-  // GPS座標をセット
-  const place = document.getElementById('ar-place')
-  place.setAttribute('gps-entity-place',
-    `latitude: ${CONFIG.latitude}; longitude: ${CONFIG.longitude}`)
+  // GPS座標を中心に 4×5 グリッド（2m間隔）で20個配置
+  const LAT_PER_M = 1 / 111000
+  const LON_PER_M = 1 / (111000 * Math.cos(CONFIG.latitude * Math.PI / 180))
+  const scene = document.querySelector('a-scene')
+  const COLS = 4, ROWS = 5
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const dx = (c - (COLS - 1) / 2) * 2   // 東西オフセット（m）
+      const dy = (r - (ROWS - 1) / 2) * 2   // 南北オフセット（m）
+      const lat = CONFIG.latitude  + dy * LAT_PER_M
+      const lon = CONFIG.longitude + dx * LON_PER_M
+
+      const entity = document.createElement('a-entity')
+      entity.setAttribute('gps-entity-place', `latitude: ${lat}; longitude: ${lon}`)
+
+      const moon = document.createElement('a-image')
+      moon.setAttribute('src', '#bubble-img')
+      moon.setAttribute('width', '10')
+      moon.setAttribute('height', '10')
+      moon.setAttribute('position', '0 2 0')
+
+      entity.appendChild(moon)
+      scene.appendChild(entity)
+    }
+  }
 
   // コンパス開始
   requestCompassPermission()
