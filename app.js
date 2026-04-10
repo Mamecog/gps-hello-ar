@@ -155,81 +155,85 @@ function onOrientation(e) {
   updateArrow()
 }
 
-function requestCompassPermission() {
-  // 許可はindex.htmlの起動オーバーレイで取得済み。直接開始する。
-  startCompass()
+// ============================================================
+//  AR エンティティ（GPS位置を自前で更新）
+// ============================================================
+const arEntities = []   // { el, targetLat, targetLon }
+
+const createAREntities = () => {
+  const LAT_PER_M = 1 / 111000
+  const LON_PER_M = 1 / (111000 * Math.cos(CONFIG.latitude * Math.PI / 180))
+  const scene = document.querySelector('a-scene')
+  const COLS = 4, ROWS = 10
+
+  const HEIGHTS = []
+  for (let h = -10; h <= 10; h++) {
+    const y = 2 + h * 2
+    if (y >= 0) HEIGHTS.push(y)
+  }
+
+  let num = 1
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const dx = (c - (COLS - 1) / 2) * 2
+      const dy = (r - (ROWS - 1) / 2) * 2
+      const targetLat = CONFIG.latitude + dy * LAT_PER_M
+      const targetLon = CONFIG.longitude + dx * LON_PER_M
+
+      const entity = document.createElement('a-entity')
+      entity.setAttribute('position', '0 0 -9999')   // GPS更新まで遠ざけておく
+
+      HEIGHTS.forEach((y, hi) => {
+        const sphere = document.createElement('a-sphere')
+        sphere.setAttribute('radius', '0.3')
+        sphere.setAttribute('color', '#f5d96b')
+        sphere.setAttribute('material', 'shader: flat; side: double')
+        sphere.setAttribute('position', `0 ${y} 0`)
+
+        if (hi === HEIGHTS.length - 1) {
+          const label = document.createElement('a-text')
+          label.setAttribute('value', String(num))
+          label.setAttribute('position', `0 ${y + 0.6} 0`)
+          label.setAttribute('align', 'center')
+          label.setAttribute('color', 'white')
+          label.setAttribute('width', '4')
+          label.setAttribute('wrap-count', '3')
+          entity.appendChild(label)
+        }
+        entity.appendChild(sphere)
+      })
+
+      scene.appendChild(entity)
+      arEntities.push({ el: entity, targetLat, targetLon })
+      num++
+    }
+  }
+}
+
+// GPS更新のたびに全エンティティの位置を再計算
+function updateEntityPositions(userLat, userLon) {
+  const cosLat = Math.cos(userLat * Math.PI / 180)
+  arEntities.forEach(({ el, targetLat, targetLon }) => {
+    const east  = (targetLon - userLon) * 111000 * cosLat
+    const north = (targetLat - userLat) * 111000
+    // A-Frame座標系: X=東, Y=上, Z=南（手前）
+    el.setAttribute('position', `${east.toFixed(3)} 0 ${(-north).toFixed(3)}`)
+  })
 }
 
 // ============================================================
 //  メイン初期化
 // ============================================================
 window.addEventListener('DOMContentLoaded', () => {
-  // 吹き出し画像をセット
-  const img = document.getElementById('bubble-img')
-  img.src   = createBubbleDataURL(CONFIG.label)
+  // コンパス開始（オーバーレイで許可済み）
+  startCompass()
 
   const scene = document.querySelector('a-scene')
-
-  // AR.jsのGPSカメラ初期化後にエンティティを追加する
-  const createAREntities = () => {
-    const LAT_PER_M = 1 / 111000
-    const LON_PER_M = 1 / (111000 * Math.cos(CONFIG.latitude * Math.PI / 180))
-    const COLS = 4, ROWS = 10
-
-    // 縦方向: 0m〜22m（2m間隔、12段）
-    const HEIGHTS = []
-    for (let h = -10; h <= 10; h++) {
-      const y = 2 + h * 2
-      if (y >= 0) HEIGHTS.push(y)
-    }
-
-    let num = 1
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const dx = (c - (COLS - 1) / 2) * 2
-        const dy = (r - (ROWS - 1) / 2) * 2
-        const lat = CONFIG.latitude  + dy * LAT_PER_M
-        const lon = CONFIG.longitude + dx * LON_PER_M
-
-        const entity = document.createElement('a-entity')
-        entity.setAttribute('gps-projected-entity-place', `latitude: ${lat}; longitude: ${lon}`)
-
-        HEIGHTS.forEach((y, hi) => {
-          const moon = document.createElement('a-sphere')
-          moon.setAttribute('radius', '0.3')
-          moon.setAttribute('color', '#f5d96b')
-          moon.setAttribute('material', 'shader: flat; side: double')
-          moon.setAttribute('position', `0 ${y} 0`)
-
-          if (hi === HEIGHTS.length - 1) {
-            const label = document.createElement('a-text')
-            label.setAttribute('value', String(num))
-            label.setAttribute('position', `0 ${y + 0.6} 0`)
-            label.setAttribute('align', 'center')
-            label.setAttribute('color', 'white')
-            label.setAttribute('width', '4')
-            label.setAttribute('wrap-count', '3')
-            entity.appendChild(label)
-          }
-
-          entity.appendChild(moon)
-        })
-
-        scene.appendChild(entity)
-        num++
-      }
-    }
-  }
-
-  // シーンのloaded後に追加（AR.js GPS初期化を待つ）
   if (scene.hasLoaded) {
     createAREntities()
   } else {
     scene.addEventListener('loaded', createAREntities)
   }
-
-  // コンパス開始
-  requestCompassPermission()
 
   // GPS 取得
   if (!navigator.geolocation) {
@@ -252,6 +256,9 @@ window.addEventListener('DOMContentLoaded', () => {
       const { latitude, longitude, accuracy } = pos.coords
       const dist = calcDistance(latitude, longitude, CONFIG.latitude, CONFIG.longitude)
       updateUI(dist)
+
+      // エンティティ位置を更新
+      updateEntityPositions(latitude, longitude)
 
       // デバッグ表示
       const dbg = document.getElementById('debug-panel')
