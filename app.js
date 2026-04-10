@@ -257,7 +257,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const dbg = document.getElementById('debug-panel')
       if (dbg) {
         dbg.innerHTML =
-          `現在地: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}<br>` +
+          `${VERSION} | 現在地: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}<br>` +
           `精度: ±${Math.round(accuracy)}m　更新: ${posCount}回`
       }
 

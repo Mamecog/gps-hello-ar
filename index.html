@@ -175,7 +175,11 @@
       <img id="bubble-img">
     </a-assets>
 
-    <a-camera gps-projected-camera rotation-reader></a-camera>
+    <a-camera
+      gps-projected-camera
+      look-controls="deviceOrientationPermissionUI: false"
+      rotation-reader>
+    </a-camera>
   </a-scene>
 
   <script>
