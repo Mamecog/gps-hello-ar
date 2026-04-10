@@ -156,23 +156,8 @@ function onOrientation(e) {
 }
 
 function requestCompassPermission() {
-  if (typeof DeviceOrientationEvent !== 'undefined' &&
-      typeof DeviceOrientationEvent.requestPermission === 'function') {
-    // iOS 13+ はユーザー操作から許可が必要
-    const btn = document.getElementById('compass-btn')
-    btn.style.display = 'block'
-    btn.addEventListener('click', () => {
-      DeviceOrientationEvent.requestPermission().then(state => {
-        if (state === 'granted') {
-          startCompass()
-          btn.style.display = 'none'
-        }
-      }).catch(console.warn)
-    })
-  } else {
-    // Android / 古いiOS は許可不要
-    startCompass()
-  }
+  // 許可はindex.htmlの起動オーバーレイで取得済み。直接開始する。
+  startCompass()
 }
 
 // ============================================================
