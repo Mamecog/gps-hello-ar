@@ -183,56 +183,64 @@ window.addEventListener('DOMContentLoaded', () => {
   const img = document.getElementById('bubble-img')
   img.src   = createBubbleDataURL(CONFIG.label)
 
-  // GPS座標を中心に 4×10 グリッド（2m間隔）× 縦方向 上下10段（2m間隔）で配置
-  const LAT_PER_M = 1 / 111000
-  const LON_PER_M = 1 / (111000 * Math.cos(CONFIG.latitude * Math.PI / 180))
   const scene = document.querySelector('a-scene')
-  const COLS = 4, ROWS = 10
 
-  // 縦方向: 基準2mから上下10段（2m間隔）、地上0m以上のみ
-  const HEIGHTS = []
-  for (let h = -10; h <= 10; h++) {
-    const y = 2 + h * 2   // -18m〜+22m
-    if (y >= 0) HEIGHTS.push(y)
-  }
-  // HEIGHTS = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]
+  // AR.jsのGPSカメラ初期化後にエンティティを追加する
+  const createAREntities = () => {
+    const LAT_PER_M = 1 / 111000
+    const LON_PER_M = 1 / (111000 * Math.cos(CONFIG.latitude * Math.PI / 180))
+    const COLS = 4, ROWS = 10
 
-  let num = 1
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const dx = (c - (COLS - 1) / 2) * 2   // 東西オフセット（m）
-      const dy = (r - (ROWS - 1) / 2) * 2   // 南北オフセット（m）
-      const lat = CONFIG.latitude  + dy * LAT_PER_M
-      const lon = CONFIG.longitude + dx * LON_PER_M
-
-      const entity = document.createElement('a-entity')
-      entity.setAttribute('gps-entity-place', `latitude: ${lat}; longitude: ${lon}`)
-
-      HEIGHTS.forEach((y, hi) => {
-        const moon = document.createElement('a-image')
-        moon.setAttribute('src', '#bubble-img')
-        moon.setAttribute('width', '10')
-        moon.setAttribute('height', '10')
-        moon.setAttribute('position', `0 ${y} 0`)
-
-        // 一番上の段だけ番号ラベルを表示
-        if (hi === HEIGHTS.length - 1) {
-          const label = document.createElement('a-text')
-          label.setAttribute('value', String(num))
-          label.setAttribute('position', `0 ${y + 6} 0`)
-          label.setAttribute('align', 'center')
-          label.setAttribute('color', 'white')
-          label.setAttribute('width', '30')
-          label.setAttribute('wrap-count', '3')
-          entity.appendChild(label)
-        }
-
-        entity.appendChild(moon)
-      })
-
-      scene.appendChild(entity)
-      num++
+    // 縦方向: 0m〜22m（2m間隔、12段）
+    const HEIGHTS = []
+    for (let h = -10; h <= 10; h++) {
+      const y = 2 + h * 2
+      if (y >= 0) HEIGHTS.push(y)
     }
+
+    let num = 1
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const dx = (c - (COLS - 1) / 2) * 2
+        const dy = (r - (ROWS - 1) / 2) * 2
+        const lat = CONFIG.latitude  + dy * LAT_PER_M
+        const lon = CONFIG.longitude + dx * LON_PER_M
+
+        const entity = document.createElement('a-entity')
+        entity.setAttribute('gps-entity-place', `latitude: ${lat}; longitude: ${lon}`)
+
+        HEIGHTS.forEach((y, hi) => {
+          const moon = document.createElement('a-image')
+          moon.setAttribute('src', '#bubble-img')
+          moon.setAttribute('width', '10')
+          moon.setAttribute('height', '10')
+          moon.setAttribute('position', `0 ${y} 0`)
+
+          if (hi === HEIGHTS.length - 1) {
+            const label = document.createElement('a-text')
+            label.setAttribute('value', String(num))
+            label.setAttribute('position', `0 ${y + 6} 0`)
+            label.setAttribute('align', 'center')
+            label.setAttribute('color', 'white')
+            label.setAttribute('width', '30')
+            label.setAttribute('wrap-count', '3')
+            entity.appendChild(label)
+          }
+
+          entity.appendChild(moon)
+        })
+
+        scene.appendChild(entity)
+        num++
+      }
+    }
+  }
+
+  // シーンのloaded後に追加（AR.js GPS初期化を待つ）
+  if (scene.hasLoaded) {
+    createAREntities()
+  } else {
+    scene.addEventListener('loaded', createAREntities)
   }
 
   // コンパス開始
