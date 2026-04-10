@@ -15,7 +15,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transform: scaleX(-1);   /* 鏡像 */
+      transform: scaleX(-1);
     }
 
     #overlay {
@@ -23,8 +23,38 @@
       inset: 0;
       width: 100%;
       height: 100%;
-      /* canvas は JS で pixel 寸法を video に合わせ、CSS で引き伸ばして表示 */
-      transform: scaleX(-1);   /* video と同じ鏡像 */
+      transform: scaleX(-1);
+    }
+
+    /* 起動オーバーレイ */
+    #start-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      z-index: 100;
+    }
+    #start-overlay p {
+      color: #fff;
+      font-family: sans-serif;
+      font-size: 17px;
+      text-align: center;
+      line-height: 1.7;
+    }
+    #start-btn {
+      background: #ff4d80;
+      color: #fff;
+      border: none;
+      padding: 16px 48px;
+      border-radius: 32px;
+      font-size: 20px;
+      font-family: sans-serif;
+      cursor: pointer;
+      letter-spacing: 0.04em;
     }
 
     #status {
@@ -32,10 +62,10 @@
       bottom: 36px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(0,0,0,0.70);
+      background: rgba(0,0,0,0.72);
       color: #fff;
       font-family: sans-serif;
-      font-size: 15px;
+      font-size: 14px;
       padding: 10px 28px;
       border-radius: 24px;
       z-index: 10;
@@ -47,16 +77,32 @@
   </style>
 </head>
 <body>
-  <video id="video" playsinline muted autoplay></video>
+  <video id="video" playsinline muted></video>
   <canvas id="overlay"></canvas>
-  <div id="status">モデルを読み込み中...</div>
+
+  <!-- iOSはユーザータップ後でないとカメラが起動できない -->
+  <div id="start-overlay">
+    <p>インカメラを使って<br>顔の上にハートを出します</p>
+    <button id="start-btn">❤️ タップして開始</button>
+  </div>
+
+  <div id="status" style="display:none"></div>
 
 <script>
 const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights'
 const video   = document.getElementById('video')
 const overlay = document.getElementById('overlay')
-const status  = document.getElementById('status')
+const statusEl = document.getElementById('status')
 const ctx     = overlay.getContext('2d')
+
+function showStatus(msg, autoHide = false) {
+  statusEl.textContent = msg
+  statusEl.style.display = 'block'
+  statusEl.classList.remove('hidden')
+  if (autoHide) {
+    setTimeout(() => statusEl.classList.add('hidden'), 2800)
+  }
+}
 
 // ============================================================
 //  浮かぶハートのパーティクル
@@ -85,19 +131,16 @@ let latestDets = []
 function renderLoop() {
   ctx.clearRect(0, 0, overlay.width, overlay.height)
 
-  // 顔の上に固定ハート
   for (const det of latestDets) {
     const { x, y, width } = det.box
-    const cx   = x + width / 2
     const size = Math.round(width * 0.6)
     ctx.font         = `${size}px serif`
     ctx.textAlign    = 'center'
     ctx.textBaseline = 'bottom'
     ctx.globalAlpha  = 0.92
-    ctx.fillText('❤️', cx, y - width * 0.05)
+    ctx.fillText('❤️', x + width / 2, y - width * 0.05)
   }
 
-  // 浮かぶハートを更新・描画
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i]
     p.x    += p.vx
@@ -126,75 +169,63 @@ const DET_OPTIONS = new faceapi.TinyFaceDetectorOptions({
 
 async function detectLoop() {
   let lastSpawn = 0
-
   while (true) {
     if (video.readyState >= 2) {
-      const dets = await faceapi.detectAllFaces(video, DET_OPTIONS)
-
-      // canvas の pixel 寸法 → video の pixel 寸法にスケール
-      latestDets = faceapi.resizeResults(dets, {
-        width:  overlay.width,
-        height: overlay.height,
-      })
-
-      const now = Date.now()
-      if (latestDets.length > 0 && now - lastSpawn > 350) {
-        lastSpawn = now
-        for (const det of latestDets) {
-          const { x, y, width } = det.box
-          spawnHearts(x + width / 2, y, width)
+      try {
+        const dets = await faceapi.detectAllFaces(video, DET_OPTIONS)
+        latestDets = faceapi.resizeResults(dets, {
+          width:  overlay.width,
+          height: overlay.height,
+        })
+        const now = Date.now()
+        if (latestDets.length > 0 && now - lastSpawn > 350) {
+          lastSpawn = now
+          for (const det of latestDets) {
+            const { x, y, width } = det.box
+            spawnHearts(x + width / 2, y, width)
+          }
         }
-      }
+      } catch (_) {}
     }
-
-    await new Promise(r => setTimeout(r, 66))   // ~15fps
+    await new Promise(r => setTimeout(r, 66))
   }
 }
 
 // ============================================================
-//  canvas を video の pixel 寸法に同期
-// ============================================================
-function syncCanvas() {
-  if (video.videoWidth > 0) {
-    overlay.width  = video.videoWidth
-    overlay.height = video.videoHeight
-  }
-}
-
-// ============================================================
-//  初期化
+//  初期化（タップ後に呼ばれる）
 // ============================================================
 async function init() {
+  const startOverlay = document.getElementById('start-overlay')
+  startOverlay.style.display = 'none'
+
   try {
-    status.textContent = 'モデルを読み込み中...'
+    showStatus('モデルを読み込み中...')
     await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL)
 
-    status.textContent = 'カメラを起動中...'
+    showStatus('カメラを起動中...')
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false,
     })
     video.srcObject = stream
-
-    await new Promise(resolve => { video.onloadedmetadata = resolve })
     await video.play()
-    syncCanvas()
 
-    window.addEventListener('resize', syncCanvas)
+    // canvas を video のピクセル寸法に合わせる
+    overlay.width  = video.videoWidth  || 640
+    overlay.height = video.videoHeight || 480
 
-    status.textContent = '顔を向けてください ❤️'
-    setTimeout(() => status.classList.add('hidden'), 2800)
+    showStatus('顔を向けてください ❤️', true)
 
     renderLoop()
-    detectLoop()   // async, 独立して走り続ける
+    detectLoop()
 
   } catch (err) {
-    status.textContent = 'エラー: ' + err.message
+    showStatus('エラー: ' + err.message)
     console.error(err)
   }
 }
 
-init()
+document.getElementById('start-btn').addEventListener('click', init)
 </script>
 </body>
 </html>
