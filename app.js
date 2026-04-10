@@ -224,6 +224,39 @@ const createAREntities = () => {
   }
 }
 
+// タップ: エンティティをワールド座標に固定
+function fixEntitiesToWorld() {
+  const scene = document.querySelector('a-scene')
+  const cam   = document.querySelector('a-camera')
+  const V3    = new AFRAME.THREE.Vector3()
+
+  arEntities.forEach(({ el }) => {
+    el.object3D.getWorldPosition(V3)   // 現在のワールド座標を取得
+    cam.removeChild(el)
+    scene.appendChild(el)
+    el.object3D.position.copy(V3)      // ワールド座標で配置
+    el.object3D.rotation.set(0, 0, 0)
+  })
+
+  positionFixed = true
+  document.getElementById('hint').textContent = '📌 空間に固定（再タップで解除）'
+}
+
+// 解除: エンティティを再びカメラ子要素に戻す
+function unfixEntities() {
+  const scene = document.querySelector('a-scene')
+  const cam   = document.querySelector('a-camera')
+
+  arEntities.forEach(({ el }) => {
+    scene.removeChild(el)
+    cam.appendChild(el)
+  })
+
+  positionFixed = false
+  document.getElementById('hint').textContent = '▶ コンテンツを探しています...'
+  updateEntityPositions()   // 現在位置で再計算
+}
+
 // エンティティ位置をカメラ相対座標で更新
 // ・カメラの子要素なので、コンパス方位を使って「world → camera-local」に変換する
 // ・これにより「向いた方向に球が現れる」動作になる
@@ -257,15 +290,13 @@ window.addEventListener('DOMContentLoaded', () => {
   // コンパス開始（オーバーレイで許可済み）
   startCompass()
 
-  // canvasタップで位置を固定（UIボタンのクリックは除外）
+  // canvasタップで空間に固定 / 解除
   document.querySelector('a-scene').addEventListener('click', () => {
     if (arEntities.length === 0) return
     if (!positionFixed) {
-      positionFixed = true
-      document.getElementById('hint').textContent = '📌 固定しました（再タップで解除）'
+      fixEntitiesToWorld()
     } else {
-      positionFixed = false
-      document.getElementById('hint').textContent = '▶ コンテンツを探しています...'
+      unfixEntities()
     }
   })
 
